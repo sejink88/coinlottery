@@ -51,7 +51,7 @@ def load_lottery_records():
     if os.path.exists(lottery_file):
         return pd.read_csv(lottery_file)
     else:
-        cols = ["반", "학생", "게임유형", "결과", "코인차감", "코인획득", "시간"]
+        cols = ["반", "학생", "게임유형", "결과", "상품/코인획득", "코인차감", "시간"]
         data = pd.DataFrame(columns=cols)
         data.to_csv(lottery_file, index=False)
         return data
@@ -80,15 +80,15 @@ student_index = students_data[(students_data["반"] == selected_class) & (studen
 
 student_pw = st.text_input("학생 개인 비밀번호를 입력하세요:", type="password")
 
-# 로또 게임 함수 (추가 기회 포함)
-def play_lottery(is_free=False):
+# -----------------------------
+# 로또 게임 함수 (선택한 숫자와 추가 게임 여부 인자로 받음)
+def play_lottery(chosen_numbers, is_free=False):
     global students_data, lottery_data
-    # is_free: 추가 게임 기회인 경우 차감하지 않음
     coin_balance = int(students_data.at[student_index, "세진코인"])
     if not is_free:
         if coin_balance < 1:
             st.error("세진코인이 부족합니다. 게임에 참여할 수 없습니다.")
-            return
+            return None
         # 1코인 차감
         students_data.at[student_index, "세진코인"] = coin_balance - 1
         cost = 1
@@ -98,8 +98,7 @@ def play_lottery(is_free=False):
     st.write("**숫자 선택 후, 컴퓨터가 공을 뽑습니다...**")
     time.sleep(0.5)
     
-    # 1부터 20까지 중, 학생이 선택할 숫자는 이미 입력되어 있음.
-    # 컴퓨터가 3개의 메인공과 보너스공 1개를 무작위로 추출 (중복 없이)
+    # 1부터 20까지 중, 컴퓨터가 중복 없이 3개의 메인공과 보너스공 1개 추첨
     pool = list(range(1, 21))
     main_balls = random.sample(pool, 3)
     remaining_pool = [num for num in pool if num not in main_balls]
@@ -107,57 +106,56 @@ def play_lottery(is_free=False):
     
     st.write(f"**메인 공:** {sorted(main_balls)}")
     st.write(f"**보너스 공:** {bonus_ball}")
-    
-    # 학생이 선택한 숫자 (정렬하지 않아도 순서 상관없이 비교)
-    chosen_numbers = sorted(selected_numbers)
     st.write(f"**학생이 선택한 숫자:** {sorted(chosen_numbers)}")
     
-    # 일치하는 숫자 개수 계산 (메인 공과 비교)
+    # 메인 공과 비교하여 일치하는 숫자 개수 계산
     matches = set(chosen_numbers) & set(main_balls)
     match_count = len(matches)
     
     outcome = ""
-    reward = 0
+    reward_text = ""
     game_type = "일반"
     
     # 룰에 따른 판정
     if match_count == 3:
         outcome = "1등"
-        reward = random.randint(6, 10)  # 1등 보상 (예시)
+        reward_text = "치킨"
+        # 1등은 상품 지급; 코인 보상 없음
     elif match_count == 2:
-        # 불일치하는 숫자 (학생이 선택한 숫자 중 메인 공에 없는 수)
+        # 불일치하는 숫자 (학생 선택 중 메인 공에 없는 수; 1개만 존재)
         non_match = list(set(chosen_numbers) - matches)[0]
         if non_match == bonus_ball:
             outcome = "2등"
-            reward = random.randint(4, 5)  # 2등 보상 (예시)
+            reward_text = "햄버거세트"
         else:
             outcome = "3등"
-            reward = random.randint(2, 3)  # 3등 보상 (예시)
+            reward = random.randint(2, 3)
+            reward_text = f"{reward} 코인"
+            students_data.at[student_index, "세진코인"] += reward
     elif match_count == 1:
         outcome = "추가게임"
         game_type = "추가"
     else:
         outcome = "다음 기회에"
     
-    # 결과에 따라 코인 지급
-    if outcome in ["1등", "2등", "3등"]:
-        # 지급 보상
-        students_data.at[student_index, "세진코인"] = int(students_data.at[student_index, "세진코인"]) + reward
-        st.success(f"축하합니다! {outcome} 당첨! {reward} 코인을 획득하였습니다.")
+    if outcome in ["1등", "2등"]:
+        st.success(f"축하합니다! {outcome} 당첨! 상품: {reward_text}을(를) 획득하였습니다.")
+    elif outcome == "3등":
+        st.success(f"축하합니다! {outcome} 당첨! {reward_text}을(를) 획득하였습니다.")
     elif outcome == "추가게임":
         st.info("메인 공과 1개만 일치합니다. 추가 게임을 진행하여 홀/짝을 맞춰보세요!")
     else:
         st.error("아쉽게도 당첨되지 않았습니다. 다음 기회에!")
     
-    # 로또 기록 생성 (게임유형: 일반/추가)
+    # 기록 생성
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     new_record = {
         "반": selected_class,
         "학생": selected_student,
         "게임유형": game_type,
         "결과": outcome,
+        "상품/코인획득": reward_text,
         "코인차감": cost,
-        "코인획득": reward,
         "시간": now,
     }
     lottery_data = lottery_data.append(new_record, ignore_index=True)
@@ -175,27 +173,25 @@ if student_pw:
         coin_balance = int(students_data.at[student_index, "세진코인"])
         st.write(f"현재 세진코인 잔액: **{coin_balance} 코인**")
         
-        # 학생이 1부터 20까지의 숫자 중 3개를 선택 (중복없이)
-        st.write("1부터 20까지의 숫자 중 3개의 숫자를 선택하세요:")
+        st.write("1부터 20까지의 숫자 중 **정확히 3개**의 숫자를 선택하세요:")
         selected_numbers = st.multiselect("숫자 선택", list(range(1,21)))
         if len(selected_numbers) != 3:
             st.warning("정확히 3개의 숫자를 선택해야 합니다.")
         else:
             if st.button("로또 게임 시작 (1코인 차감)"):
-                result = play_lottery(is_free=False)
-                # 만약 결과가 추가게임인 경우, 추가 게임 진행 UI 표시
+                result = play_lottery(selected_numbers, is_free=False)
+                # 추가 게임 진행: match_count == 1 일 때 result는 "추가게임"
                 if result == "추가게임":
                     st.markdown("---")
-                    st.write("추가 게임: 홀수/짝수 맞추기")
+                    st.write("**추가 게임: 홀수/짝수 맞추기**")
                     player_choice = st.radio("홀수 또는 짝수를 선택하세요:", ("홀수", "짝수"))
                     if st.button("추가 게임 진행"):
-                        # 컴퓨터가 랜덤으로 홀/짝 결정 (50% 확률)
                         comp_choice = random.choice(["홀수", "짝수"])
                         st.write(f"컴퓨터의 선택: **{comp_choice}**")
                         if player_choice == comp_choice:
                             st.success("추가 게임 승리! 무료 로또 게임 기회를 드립니다.")
                             if st.button("무료 추가 로또 게임 시작"):
-                                play_lottery(is_free=True)
+                                play_lottery(selected_numbers, is_free=True)
                         else:
                             st.error("추가 게임에서 실패하였습니다. 다음 기회에!")
     else:
