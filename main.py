@@ -14,7 +14,7 @@ lottery_file = "lottery_records.csv"
 # -----------------------------
 # 학생 개인 비밀번호 (예시)
 student_passwords = {
-    "학생 A": "passwordA",
+    "학생 김성호": "tjdgh",
     "학생 B": "passwordB",
     "학생 C": "passwordC",
     "학생 D": "passwordD",
