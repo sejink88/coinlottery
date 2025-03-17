@@ -158,7 +158,11 @@ def play_lottery(chosen_numbers, is_free=False):
         "코인차감": cost,
         "시간": now,
     }
-    lottery_data = lottery_data.append(new_record, ignore_index=True)
+    # pd.concat로 데이터프레임에 새 기록 추가 (append 대신)
+    lottery_data = pd.concat([lottery_data, pd.DataFrame([new_record])], ignore_index=True)
+    # 전역 변수 업데이트
+    globals()['lottery_data'] = lottery_data
+
     save_students_data(students_data)
     save_lottery_record(lottery_data)
     st.write(f"현재 잔액: **{students_data.at[student_index, '세진코인']} 코인**")
