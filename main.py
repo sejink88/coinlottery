@@ -32,7 +32,7 @@ def load_students_data():
         data = pd.DataFrame({
             "반": ["1반", "1반", "2반", "2반"],
             "학생": ["김성호", "학생 B", "학생 C", "학생 D"],
-            "세진코인": [5, 5, 5, 5],  # 초기 코인 수치는 예시로 5코인씩 부여
+            "세진코인": [5, 5, 5, 5],
             "기록": ["[]", "[]", "[]", "[]"]
         })
         data.to_csv(students_file, index=False)
@@ -148,8 +148,8 @@ if student_pw:
                         "코인차감": 1,
                         "시간": now
                     }
-                    # 기록 추가 (pandas 1.x 버전의 append 사용)
-                    lottery_data = lottery_data.append(new_record, ignore_index=True)
+                    # pd.concat를 사용해 새 레코드 추가 (pandas 2.0 이상 호환)
+                    lottery_data = pd.concat([lottery_data, pd.DataFrame([new_record])], ignore_index=True)
                     save_students_data(students_data)
                     save_lottery_record(lottery_data)
                     
